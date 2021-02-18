@@ -65,6 +65,6 @@ app.post('/api/investments', (req, res) => {
     res.json("success")
 })
 
-app.listen(4000, ()=> {
+app.listen(process.env.PORT || 4000, ()=> {
     console.log("App deployed")
 })
