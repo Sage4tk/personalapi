@@ -1,54 +1,67 @@
 const { urlencoded } = require('express');
 const express = require('express');
 const ySP = require('yahoo-stock-prices');
+const mongoose = require('mongoose');
+const dotenv = require('dotenv');
+
+dotenv.config();
 
 const app = express();
 //middleware
 app.use(express.json());
-app.use(express.urlencoded({ extended: true}));
+app.use(express.urlencoded({ extended: false }));
 
-let all = [
-    {
-        name: "AMD",
-        bought: 90,
-        currency: "USD",
-        currentPrice: undefined
-    },
-    {
-        name: "BNGO",
-        bought: 5,
-        currency: "USD",
-        currentPrice: undefined
-    },
-    {
-        name: "NIO",
-        bought: 52,
-        currency: "USD",
-        currentPrice: undefined
-    },
-    {
-        name: "WBA",
-        bought: 48.60,
-        currency: "USD",
-        currentPrice: undefined
-    }
-]
+
+//database
+mongoose.connect(
+    process.env.DB_CONNECTION,
+    { useNewUrlParser: true, useUnifiedTopology: true },
+    () => console.log('connected to atlas')
+);
+
+const db = mongoose.connection;
+db.on('error', console.error.bind(console, 'connection error'));
+
+const Bought = require('./model/Bought.js');
+
+let stocks = [];
 
 getPrice = () => {
-    all.forEach((e) => {
+    stocks.forEach((e) => {
         ySP.getCurrentPrice(e.name, (err, price) => {
-            e.currentPrice = price;
-            const roi = e.currentPrice / e.bought * 100 - 100;
-            const fixed = roi.toFixed(2);
-            e.returnOfInvesment = fixed;
+            if (err) {
+                console.log(err);
+            } else {
+                e.currentPrice = price;
+            }
         })
     })
-    
 }
 
-getPrice();
+const readStocks = () => {
+    Bought.find((err, stonks) => {
+        if (err) {
+            console.log(err)
+        } else {
+            stocks = [];
+            stonks.forEach((data, index) => {
+                const pushToStocks = {
+                    name: data.ticker,
+                    bought: data.bought,
+                    currency: data.currency,
+                    key: index
+                }
+    
+                stocks.push(pushToStocks);
+                getPrice();
+            })
+        }
+    })
+}
 
-app.use(function(req, res, next) {
+readStocks();
+
+app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
     next();
@@ -56,19 +69,25 @@ app.use(function(req, res, next) {
 
 app.get('/api/investments', (req, res) => {
     getPrice();
-    res.json(all)
+    res.json(stocks);
 })
 
-app.post('/api/investments', (req, res) => {
-    const theInvestment = {
-        name: req.body.name,
+app.post('/api/investments', async (req, res) => {
+    console.log("A REQUEST")
+    const invested = new Bought ({
+        ticker: req.body.ticker,
         bought: req.body.bought,
-        currency: req.body. currency
-    }
+        currency: req.body.currency
+    });
 
-    all.push(theInvestment);
-    getPrice();
-    res.json("success")
+    try {
+        const saverino = await invested.save();
+        readStocks();
+        res.send("SUCCESS")
+    } catch (err) {
+        console.log(err)
+        res.status(400).send(err);
+    }
 })
 
 app.listen(process.env.PORT || 4000, ()=> {
