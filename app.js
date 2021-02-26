@@ -33,6 +33,8 @@ getPrice = () => {
                 console.log(err);
             } else {
                 e.currentPrice = price;
+                const roi = e.currentPrice / e.bought * 100 - 100;
+                e.returnOfInvestment = roi.toFixed(2);
             }
         })
     })
