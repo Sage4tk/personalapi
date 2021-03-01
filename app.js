@@ -138,6 +138,7 @@ app.post('/api/watchlist', async (req, res) => {
 
     try {
         const save = await wList.save();
+        readStocks();
         res.send("SUCCESS");
     } catch (err) {
         res.status(400).send(err);
